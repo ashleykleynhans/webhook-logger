@@ -4,3 +4,6 @@ venv/*
 .idea
 __pycache__
 config.yml
+*.jpeg
+*.jpg
+*.png

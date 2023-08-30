@@ -1,8 +1,14 @@
 #!/usr/bin/env python3
+import io
 import argparse
 import json
-
+import uuid
+import base64
+from PIL import Image
 from flask import Flask, request, jsonify, make_response
+
+
+OUTPUT_FORMAT = 'JPEG'
 
 
 def get_args():
@@ -24,6 +30,28 @@ def get_args():
     )
 
     return parser.parse_args()
+
+
+def save_result_images(resp_json):
+    for output_image in resp_json['output']['images']:
+        img = Image.open(io.BytesIO(base64.b64decode(output_image)))
+        file_extension = 'jpeg' if OUTPUT_FORMAT == 'JPEG' else 'png'
+        output_file = f'{uuid.uuid4()}.{file_extension}'
+
+        with open(output_file, 'wb') as f:
+            print(f'Saving image: {output_file}')
+            img.save(f, format=OUTPUT_FORMAT)
+
+
+def save_result_image(resp_json):
+    output_image = resp_json['output']['image']
+    img = Image.open(io.BytesIO(base64.b64decode(output_image)))
+    file_extension = 'jpeg' if OUTPUT_FORMAT == 'JPEG' else 'png'
+    output_file = f'{uuid.uuid4()}.{file_extension}'
+
+    with open(output_file, 'wb') as f:
+        print(f'Saving image: {output_file}')
+        img.save(f, format=OUTPUT_FORMAT)
 
 
 app = Flask(__name__)
@@ -62,8 +90,20 @@ def ping():
 
 @app.route('/', methods=['POST'])
 def webhook_handler():
-    print(request.get_json())
-    print(json.dumps(request.get_json(), indent=4))
+    payload = request.get_json()
+
+    if 'output' in payload and 'images' in payload['output']:
+        save_result_images(payload)
+    elif 'output' in payload and 'image' in payload['output']:
+        save_result_image(payload)
+    else:
+        print(json.dumps(payload, indent=4, default=str))
+
+    return make_response(jsonify(
+        {
+            'status': 'ok'
+        }
+    ), 200)
 
 
 if __name__ == '__main__':
