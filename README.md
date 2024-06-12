@@ -47,3 +47,13 @@ ngrok http 8100
 
 Use the `Forwarding` URL from ngrok (eg. https://f8e2-45-222-5-113.ngrok.io)
 as your Webhook URL.
+
+## Community and Contributing
+
+Pull requests and issues on [GitHub](https://github.com/ashleykleynhans/webhook-logger)
+are welcome. Bug fixes and new features are encouraged.
+
+## Appreciate my work?
+
+<a href="https://www.buymeacoffee.com/ashleyk" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" style="height: 60px !important;width: 217px !important;" ></a>
+
