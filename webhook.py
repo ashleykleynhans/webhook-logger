@@ -6,6 +6,7 @@ import uuid
 import base64
 from PIL import Image
 from flask import Flask, request, jsonify, make_response
+from werkzeug.serving import WSGIRequestHandler
 
 
 OUTPUT_FORMAT = 'JPEG'
@@ -54,7 +55,33 @@ def save_result_image(resp_json):
         img.save(f, format=OUTPUT_FORMAT)
 
 
+WSGIRequestHandler.server_version = 'WebhookLogger/1.0'
+WSGIRequestHandler.sys_version = ''
 app = Flask(__name__)
+
+
+@app.before_request
+def before_request():
+    # Only handle POST requests to /
+    if request.method == 'POST' and request.path == '/':
+        content_type = request.headers.get('Content-Type', '')
+
+        # If Content-Type is not set or is not application/json
+        if 'application/json' not in content_type.lower():
+            # Try to parse the data as JSON
+            try:
+                # Force Flask to parse JSON data even if Content-Type is not set
+                if request.data:
+                    request.get_json(force=True)
+                # Modify the request headers to include Content-Type
+                request.environ['CONTENT_TYPE'] = 'application/json'
+            except Exception as e:
+                # If JSON parsing fails, return 400 Bad Request
+                return make_response(jsonify({
+                    'status': 'error',
+                    'msg': 'Invalid JSON data',
+                    'detail': str(e)
+                }), 400)
 
 
 @app.errorhandler(404)
@@ -90,6 +117,10 @@ def ping():
 
 @app.route('/', methods=['POST'])
 def webhook_handler():
+    token = request.args.get('token', '-')
+    print('Token: ' + token)
+    print('User agent: ' + request.headers.get('user-agent', '-'))
+
     payload = request.get_json()
 
     if 'output' in payload and 'images' in payload['output']:

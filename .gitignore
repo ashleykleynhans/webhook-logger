@@ -1,7 +1,8 @@
-zappa_settings.json
 venv/*
 .vscode
 .idea
+*.log
+.DS_Store
 __pycache__
 config.yml
 *.jpeg
