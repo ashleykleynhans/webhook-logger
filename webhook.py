@@ -55,6 +55,18 @@ def save_result_image(resp_json):
         img.save(f, format=OUTPUT_FORMAT)
 
 
+def save_openai_result_images(resp_json):
+    for output_image in resp_json['output']['data']:
+        output_image = output_image.get('b64_json')
+        img = Image.open(io.BytesIO(base64.b64decode(output_image)))
+        file_extension = 'jpeg' if OUTPUT_FORMAT == 'JPEG' else 'png'
+        output_file = f'{uuid.uuid4()}.{file_extension}'
+
+        with open(output_file, 'wb') as f:
+            print(f'Saving image: {output_file}')
+            img.save(f, format=OUTPUT_FORMAT)
+
+
 WSGIRequestHandler.server_version = 'WebhookLogger/1.0'
 WSGIRequestHandler.sys_version = ''
 app = Flask(__name__)
@@ -127,6 +139,8 @@ def webhook_handler():
         save_result_images(payload)
     elif 'output' in payload and 'image' in payload['output']:
         save_result_image(payload)
+    elif 'output' in payload and 'data' in payload['output']:
+        save_openai_result_images(payload)
     else:
         print(json.dumps(payload, indent=4, default=str))
 
