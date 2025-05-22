@@ -67,6 +67,49 @@ def save_openai_result_images(resp_json):
             img.save(f, format=OUTPUT_FORMAT)
 
 
+def format_time_ms(milliseconds):
+    """
+    Convert milliseconds to human-readable format.
+
+    Args:
+        milliseconds (int/float): Time in milliseconds
+
+    Returns:
+        str: Formatted time string (e.g., "0.03s", "21.29s", "1m 42s")
+    """
+    if milliseconds is None:
+        return '0s'
+
+    # Convert to seconds
+    total_seconds = milliseconds / 1000
+
+    # Less than 1 minute
+    if total_seconds < 60:
+        # Format with 2 decimal places, then clean up
+        if total_seconds == int(total_seconds):
+            return f'{int(total_seconds)}s'
+        else:
+            # Show up to 2 decimal places, removing trailing zeros
+            return f'{total_seconds:.2f}s'.rstrip('0').rstrip('.')
+
+    # 1 minute or more
+    minutes = int(total_seconds // 60)
+    remaining_seconds = total_seconds % 60
+
+    # Round seconds to nearest whole number for minute display
+    remaining_seconds = round(remaining_seconds)
+
+    # Handle case where rounding pushes seconds to 60
+    if remaining_seconds == 60:
+        minutes += 1
+        remaining_seconds = 0
+
+    if remaining_seconds == 0:
+        return f'{minutes}m'
+    else:
+        return f'{minutes}m {remaining_seconds}s'
+
+
 WSGIRequestHandler.server_version = 'WebhookLogger/1.0'
 WSGIRequestHandler.sys_version = ''
 app = Flask(__name__)
@@ -134,6 +177,17 @@ def webhook_handler():
     print('User agent: ' + request.headers.get('user-agent', '-'))
 
     payload = request.get_json()
+    delay_time = payload.get('delayTime')
+    execution_time = payload.get('executionTime')
+
+    if delay_time:
+        delay_formatted = format_time_ms(delay_time)
+        print(f'Delay time: {delay_formatted}')
+
+    if execution_time:
+        execution_formatted = format_time_ms(execution_time)
+        print(f'Execution time: {execution_formatted}')
+
 
     if 'output' in payload and 'images' in payload['output']:
         save_result_images(payload)
