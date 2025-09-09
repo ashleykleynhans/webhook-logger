@@ -1,3 +1,5 @@
 flask
 Pillow
 requests
+pycryptodome
+python-dotenv

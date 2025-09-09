@@ -1,15 +1,27 @@
 #!/usr/bin/env python3
+import os
+import sys
 import io
 import argparse
 import json
 import uuid
 import base64
+import hashlib
+import requests
+from Crypto.Cipher import AES
 from PIL import Image
+from dotenv import dotenv_values
 from flask import Flask, request, jsonify, make_response
 from werkzeug.serving import WSGIRequestHandler
 
 
 OUTPUT_FORMAT = 'JPEG'
+
+
+def load_env_variables():
+    """Load environment variables from .env file."""
+    script_path = os.path.abspath(sys.argv[0])
+    return dotenv_values(os.path.dirname(script_path) + '/.env')
 
 
 def get_args():
@@ -31,6 +43,91 @@ def get_args():
     )
 
     return parser.parse_args()
+
+
+def generate_msg_signature(client_id, timestamp, nonce, msg_encrypt):
+    # Convert all values to strings - timestamp is numeric in the payload
+    sorted_str = ''.join(sorted([str(client_id), str(timestamp), str(nonce), str(msg_encrypt)]))
+    hash_value = hashlib.sha1(sorted_str.encode('utf-8')).hexdigest()
+    return hash_value
+
+
+def generate_aes_decrypt(data_encrypt, client_id, client_secret):
+    aes_key = client_secret.encode('utf-8')
+
+    # Ensure the IV is 16 bytes long
+    iv = client_id.encode('utf-8')
+    iv = iv[:16] if len(iv) >= 16 else iv.ljust(16, b'\0')
+
+    cipher = AES.new(aes_key, AES.MODE_CBC, iv)
+    decrypted_data = cipher.decrypt(base64.b64decode(data_encrypt))
+
+    padding_len = decrypted_data[-1]
+    return decrypted_data[:-padding_len].decode('utf-8')
+
+def decrypt_akool_webhook(payload):
+    print('Decrypting Akool webhook payload...')
+    env = load_env_variables()
+    client_id = env.get('AKOOL_CLIENT_ID', None)
+    client_secret = env.get('AKOOL_CLIENT_SECRET', None)
+
+    if not client_id or not client_secret:
+        print('AKOOL_CLIENT_ID or AKOOL_CLIENT_SECRET not set in .env file')
+        return
+
+    signature = payload.get('signature')
+    timestamp = payload.get('timestamp')
+    nonce = payload.get('nonce')
+    data_encrypt = payload.get('dataEncrypt')
+
+    if not signature or not timestamp or not nonce or not data_encrypt:
+        print('Missing required fields in payload for decryption')
+        return
+
+    expected_signature = generate_msg_signature(client_id, timestamp, nonce, data_encrypt)
+
+    if signature != expected_signature:
+        print('Invalid signature. Payload may have been tampered with.')
+        return
+
+    try:
+        decrypted_json_str = generate_aes_decrypt(data_encrypt, client_id, client_secret)
+        decrypted_payload = json.loads(decrypted_json_str)
+
+        id = decrypted_payload.get('_id')
+        status = decrypted_payload.get('status', 0)
+        type = decrypted_payload.get('type')
+        url = decrypted_payload.get('url')
+        deduction_credit = decrypted_payload.get('deduction_credit')
+
+        if id and status == 2:
+            print(f"{type} is in progress - deduction credit: {deduction_credit}...")
+        elif id and status == 3:
+            print(f"{type} completed successfully - deduction credit: {deduction_credit}")
+            if url:
+                print(f"Result URL: {url}")
+                # Download the image from the URL and save it
+                try:
+                    response = requests.get(url)
+                    response.raise_for_status()
+                    img = Image.open(io.BytesIO(response.content))
+                    file_extension = 'jpeg' if OUTPUT_FORMAT == 'JPEG' else 'png'
+                    output_file = f'{uuid.uuid4()}.{file_extension}'
+
+                    # Save the image to disk
+                    with open(output_file, 'wb') as f:
+                        print(f'Saving image: {output_file}')
+                        img.save(f, format=OUTPUT_FORMAT)
+
+                except requests.exceptions.RequestException as e:
+                    print(f'Error downloading image from URL: {e}')
+                except Exception as e:
+                    print(f'Error processing/saving image: {e}')
+        else:
+            print(json.dumps(decrypted_payload, indent=4, default=str))
+
+    except Exception as e:
+        print(f'Error during decryption or processing: {e}')
 
 
 def save_result_images(resp_json):
@@ -188,13 +285,18 @@ def webhook_handler():
         execution_formatted = format_time_ms(execution_time)
         print(f'Execution time: {execution_formatted}')
 
-
+    # if 'output' in payload:
+    #     del payload['output']
     if 'output' in payload and 'images' in payload['output']:
         save_result_images(payload)
     elif 'output' in payload and 'image' in payload['output']:
         save_result_image(payload)
     elif 'output' in payload and 'data' in payload['output']:
+        # del payload['output']['data']
+        #print(json.dumps(payload, indent=4, default=str))
         save_openai_result_images(payload)
+    elif 'signature' in payload and 'dataEncrypt' in payload and 'nonce' in payload:
+        decrypt_akool_webhook(payload)
     else:
         print(json.dumps(payload, indent=4, default=str))
 
