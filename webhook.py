@@ -274,8 +274,16 @@ def webhook_handler():
     print('User agent: ' + request.headers.get('user-agent', '-'))
 
     payload = request.get_json()
+    job_id = payload.get('id')
+    processor = payload.get('processor')
     delay_time = payload.get('delayTime')
     execution_time = payload.get('executionTime')
+
+    if job_id:
+        print(f'Job ID: {job_id}')
+
+    if processor:
+        print(f'Processor: {processor}')
 
     if delay_time:
         delay_formatted = format_time_ms(delay_time)
@@ -299,6 +307,8 @@ def webhook_handler():
         decrypt_akool_webhook(payload)
     else:
         print(json.dumps(payload, indent=4, default=str))
+
+    print('-' * 50)
 
     return make_response(jsonify(
         {
