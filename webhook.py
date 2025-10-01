@@ -142,7 +142,13 @@ def save_result_images(resp_json):
 
 
 def save_result_image(resp_json):
-    output_image = resp_json['output']['image']
+    output = resp_json.get('output', {})
+
+    if 'result_image' in output:
+        output_image = output['result_image']
+    elif 'image' in output:
+        output_image = output['image']
+
     img = Image.open(io.BytesIO(base64.b64decode(output_image)))
     file_extension = 'jpeg' if OUTPUT_FORMAT == 'JPEG' else 'png'
     output_file = f'{uuid.uuid4()}.{file_extension}'
@@ -303,6 +309,8 @@ def webhook_handler():
         # del payload['output']['data']
         #print(json.dumps(payload, indent=4, default=str))
         save_openai_result_images(payload)
+    elif 'output' in payload and 'result_image' in payload['output']:
+        save_result_image(payload)
     elif 'signature' in payload and 'dataEncrypt' in payload and 'nonce' in payload:
         decrypt_akool_webhook(payload)
     else:
