@@ -8,6 +8,7 @@ import uuid
 import base64
 import hashlib
 import requests
+import math
 from Crypto.Cipher import AES
 from PIL import Image
 from dotenv import dotenv_values
@@ -130,6 +131,33 @@ def decrypt_akool_webhook(payload):
         print(f'Error during decryption or processing: {e}')
 
 
+def get_aspect_ratio(img):
+    width, height = img.size
+
+    # Required aspect ratios with their decimal values
+    common_ratios = [
+        (1, 1, 1.0),        # 1:1 Square
+        (2, 3, 0.6667),     # 2:3 Portrait
+        (3, 2, 1.5),        # 3:2 Landscape
+        (3, 4, 0.75),       # 3:4 Portrait
+        (4, 3, 1.3333),     # 4:3 Landscape
+        (9, 16, 0.5625),    # 9:16 Portrait (vertical video)
+        (16, 9, 1.7778),    # 16:9 Landscape (widescreen)
+        (21, 9, 2.3333),    # 21:9 Landscape (ultrawide)
+    ]
+
+    # Calculate actual ratio
+    actual_ratio = width / height
+
+    # Find closest common ratio (with 3% tolerance)
+    tolerance = 0.03
+    for w, h, target in common_ratios:
+        if abs(actual_ratio - target) < tolerance:
+            return width, height, w, h
+
+    # If no common ratio matches, return None or the actual ratio
+    return width, height, None, None
+
 def save_result_images(resp_json):
     for output_image in resp_json['output']['images']:
         img = Image.open(io.BytesIO(base64.b64decode(output_image)))
@@ -137,6 +165,9 @@ def save_result_images(resp_json):
         output_file = f'{uuid.uuid4()}.{file_extension}'
 
         with open(output_file, 'wb') as f:
+            width, height, ratio_width, ratio_height = get_aspect_ratio(img)
+            print(f'Image dimensions: {width}x{height}')
+            print(f'Image Aspect Ratio: {ratio_width}:{ratio_height}')
             print(f'Saving image: {output_file}')
             img.save(f, format=OUTPUT_FORMAT)
 
@@ -154,6 +185,9 @@ def save_result_image(resp_json):
     output_file = f'{uuid.uuid4()}.{file_extension}'
 
     with open(output_file, 'wb') as f:
+        width, height, ratio_width, ratio_height = get_aspect_ratio(img)
+        print(f'Image dimensions: {width}x{height}')
+        print(f'Image Aspect Ratio: {ratio_width}:{ratio_height}')
         print(f'Saving image: {output_file}')
         img.save(f, format=OUTPUT_FORMAT)
 
@@ -166,6 +200,9 @@ def save_openai_result_images(resp_json):
         output_file = f'{uuid.uuid4()}.{file_extension}'
 
         with open(output_file, 'wb') as f:
+            width, height, ratio_width, ratio_height = get_aspect_ratio(img)
+            print(f'Image dimensions: {width}x{height}')
+            print(f'Image Aspect Ratio: {ratio_width}:{ratio_height}')
             print(f'Saving image: {output_file}')
             img.save(f, format=OUTPUT_FORMAT)
 
