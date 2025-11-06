@@ -353,6 +353,10 @@ def webhook_handler():
     else:
         print(json.dumps(payload, indent=4, default=str))
 
+    if 'metadata' in payload:
+        metadata = payload.get('metadata')
+        print('Meta-data:', json.dumps(metadata, indent=4, default=str))
+
     print('-' * 50)
 
     return make_response(jsonify(
