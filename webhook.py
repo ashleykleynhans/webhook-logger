@@ -321,13 +321,13 @@ def webhook_handler():
         execution_formatted = format_time_ms(execution_time)
         print(f'Execution time: {execution_formatted}')
 
-    if 'output' in payload and 'images' in payload['output']:
+    output = payload.get('output', {})
+
+    if output.get('images'):
         save_result_images(payload)
-    elif 'output' in payload and 'image' in payload['output']:
-        save_result_image(payload)
-    elif 'output' in payload and 'data' in payload['output']:
+    elif output.get('data'):
         save_openai_result_images(payload)
-    elif 'output' in payload and 'result_image' in payload['output']:
+    elif output.get('result_image') or output.get('image'):
         save_result_image(payload)
     elif 'signature' in payload and 'dataEncrypt' in payload and 'nonce' in payload:
         decrypt_akool_webhook(payload)
