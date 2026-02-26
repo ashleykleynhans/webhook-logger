@@ -8,7 +8,6 @@ import uuid
 import base64
 import hashlib
 import requests
-import math
 from Crypto.Cipher import AES
 from PIL import Image
 from dotenv import dotenv_values
@@ -66,11 +65,12 @@ def generate_aes_decrypt(data_encrypt, client_id, client_secret):
     padding_len = decrypted_data[-1]
     return decrypted_data[:-padding_len].decode('utf-8')
 
+
 def decrypt_akool_webhook(payload):
     print('Decrypting Akool webhook payload...')
     env = load_env_variables()
-    client_id = env.get('AKOOL_CLIENT_ID', None)
-    client_secret = env.get('AKOOL_CLIENT_SECRET', None)
+    client_id = env.get('AKOOL_CLIENT_ID')
+    client_secret = env.get('AKOOL_CLIENT_SECRET')
 
     if not client_id or not client_secret:
         print('AKOOL_CLIENT_ID or AKOOL_CLIENT_SECRET not set in .env file')
@@ -95,31 +95,23 @@ def decrypt_akool_webhook(payload):
         decrypted_json_str = generate_aes_decrypt(data_encrypt, client_id, client_secret)
         decrypted_payload = json.loads(decrypted_json_str)
 
-        id = decrypted_payload.get('_id')
+        job_id = decrypted_payload.get('_id')
         status = decrypted_payload.get('status', 0)
-        type = decrypted_payload.get('type')
+        job_type = decrypted_payload.get('type')
         url = decrypted_payload.get('url')
         deduction_credit = decrypted_payload.get('deduction_credit')
 
-        if id and status == 2:
-            print(f"{type} is in progress - deduction credit: {deduction_credit}...")
-        elif id and status == 3:
-            print(f"{type} completed successfully - deduction credit: {deduction_credit}")
+        if job_id and status == 2:
+            print(f"{job_type} is in progress - deduction credit: {deduction_credit}...")
+        elif job_id and status == 3:
+            print(f"{job_type} completed successfully - deduction credit: {deduction_credit}")
             if url:
                 print(f"Result URL: {url}")
-                # Download the image from the URL and save it
                 try:
                     response = requests.get(url)
                     response.raise_for_status()
                     img = Image.open(io.BytesIO(response.content))
-                    file_extension = 'jpeg' if OUTPUT_FORMAT == 'JPEG' else 'png'
-                    output_file = f'{uuid.uuid4()}.{file_extension}'
-
-                    # Save the image to disk
-                    with open(output_file, 'wb') as f:
-                        print(f'Saving image: {output_file}')
-                        img.save(f, format=OUTPUT_FORMAT)
-
+                    save_image(img)
                 except requests.exceptions.RequestException as e:
                     print(f'Error downloading image from URL: {e}')
                 except Exception as e:
@@ -158,18 +150,23 @@ def get_aspect_ratio(img):
     # If no common ratio matches, return None or the actual ratio
     return width, height, None, None
 
+
+def save_image(img):
+    """Save a PIL Image to disk with a unique filename, logging dimensions and aspect ratio."""
+    file_extension = OUTPUT_FORMAT.lower()
+    output_file = f'{uuid.uuid4()}.{file_extension}'
+    width, height, ratio_w, ratio_h = get_aspect_ratio(img)
+    print(f'Image dimensions: {width}x{height}')
+    if ratio_w and ratio_h:
+        print(f'Image Aspect Ratio: {ratio_w}:{ratio_h}')
+    print(f'Saving image: {output_file}')
+    img.save(output_file, format=OUTPUT_FORMAT)
+
+
 def save_result_images(resp_json):
     for output_image in resp_json['output']['images']:
         img = Image.open(io.BytesIO(base64.b64decode(output_image)))
-        file_extension = 'jpeg' if OUTPUT_FORMAT == 'JPEG' else 'png'
-        output_file = f'{uuid.uuid4()}.{file_extension}'
-
-        with open(output_file, 'wb') as f:
-            width, height, ratio_width, ratio_height = get_aspect_ratio(img)
-            print(f'Image dimensions: {width}x{height}')
-            print(f'Image Aspect Ratio: {ratio_width}:{ratio_height}')
-            print(f'Saving image: {output_file}')
-            img.save(f, format=OUTPUT_FORMAT)
+        save_image(img)
 
 
 def save_result_image(resp_json):
@@ -179,32 +176,20 @@ def save_result_image(resp_json):
         output_image = output['result_image']
     elif 'image' in output:
         output_image = output['image']
+    else:
+        print('No result image found in output')
+        return
 
     img = Image.open(io.BytesIO(base64.b64decode(output_image)))
-    file_extension = 'jpeg' if OUTPUT_FORMAT == 'JPEG' else 'png'
-    output_file = f'{uuid.uuid4()}.{file_extension}'
-
-    with open(output_file, 'wb') as f:
-        width, height, ratio_width, ratio_height = get_aspect_ratio(img)
-        print(f'Image dimensions: {width}x{height}')
-        print(f'Image Aspect Ratio: {ratio_width}:{ratio_height}')
-        print(f'Saving image: {output_file}')
-        img.save(f, format=OUTPUT_FORMAT)
+    save_image(img)
 
 
 def save_openai_result_images(resp_json):
-    for output_image in resp_json['output']['data']:
-        output_image = output_image.get('b64_json')
-        img = Image.open(io.BytesIO(base64.b64decode(output_image)))
-        file_extension = 'jpeg' if OUTPUT_FORMAT == 'JPEG' else 'png'
-        output_file = f'{uuid.uuid4()}.{file_extension}'
-
-        with open(output_file, 'wb') as f:
-            width, height, ratio_width, ratio_height = get_aspect_ratio(img)
-            print(f'Image dimensions: {width}x{height}')
-            print(f'Image Aspect Ratio: {ratio_width}:{ratio_height}')
-            print(f'Saving image: {output_file}')
-            img.save(f, format=OUTPUT_FORMAT)
+    """Save output images from OpenAI and Google Gemini webhooks."""
+    for i, output_image in enumerate(resp_json['output']['data'], start=1):
+        print(f'Processing output image #{i}')
+        img = Image.open(io.BytesIO(base64.b64decode(output_image.get('b64_json'))))
+        save_image(img)
 
 
 def format_time_ms(milliseconds):
@@ -336,15 +321,11 @@ def webhook_handler():
         execution_formatted = format_time_ms(execution_time)
         print(f'Execution time: {execution_formatted}')
 
-    # if 'output' in payload:
-    #     del payload['output']
     if 'output' in payload and 'images' in payload['output']:
         save_result_images(payload)
     elif 'output' in payload and 'image' in payload['output']:
         save_result_image(payload)
     elif 'output' in payload and 'data' in payload['output']:
-        # del payload['output']['data']
-        #print(json.dumps(payload, indent=4, default=str))
         save_openai_result_images(payload)
     elif 'output' in payload and 'result_image' in payload['output']:
         save_result_image(payload)
