@@ -10,3 +10,8 @@ config.yml
 *.png
 payload.json
 .env
+.coverage
+htmlcov/
+*.cover
+*.py,cover
+.pytest_cache/

@@ -3,3 +3,5 @@ Pillow
 requests
 pycryptodome
 python-dotenv
+pytest
+pytest-cov

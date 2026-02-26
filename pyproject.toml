@@ -1,0 +1,18 @@
+[project]
+name = "webhook-logger"
+requires-python = ">=3.10"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--cov=webhook --cov-report=term-missing --cov-fail-under=100"
+
+[tool.coverage.run]
+source = ["webhook"]
+omit = ["tests/*"]
+
+[tool.coverage.report]
+show_missing = true
+fail_under = 100
+exclude_lines = [
+    "if __name__",
+]

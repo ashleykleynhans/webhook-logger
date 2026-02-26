@@ -48,6 +48,16 @@ ngrok http 8100
 Use the `Forwarding` URL from ngrok (eg. https://f8e2-45-222-5-113.ngrok.io)
 as your Webhook URL.
 
+## Running the Tests
+
+```bash
+pytest -v
+```
+
+This will automatically run with coverage reporting enabled (configured in
+`pyproject.toml`). The test suite enforces 100% code coverage and will fail
+if coverage drops below that threshold.
+
 ## Community and Contributing
 
 Pull requests and issues on [GitHub](https://github.com/ashleykleynhans/webhook-logger)
