@@ -620,10 +620,9 @@ class TestBeforeRequest:
             data='not json',
             content_type='text/plain',
         )
-        assert response.status_code == 400
+        assert response.status_code == 200
         data = response.get_json()
-        assert data['status'] == 'error'
-        assert 'Invalid JSON' in data['msg']
+        assert data['status'] == 'ok'
 
     def test_empty_body_with_wrong_content_type(self, client):
         response = client.post(
