@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-* Install [ngrok](https://ngrok.com/download).
+* Install [ngrok](https://ngrok.com/download) **or** [cloudflared](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/).
 
 ## Installation
 
@@ -39,7 +39,9 @@ In the same terminal that you activated the venv:
 python3 webhook.py -p 8100
 ```
 
-In a new terminal:
+In a new terminal, use either ngrok or Cloudflare Tunnel:
+
+**ngrok:**
 
 ```bash
 ngrok http 8100
@@ -47,6 +49,24 @@ ngrok http 8100
 
 Use the `Forwarding` URL from ngrok (eg. https://f8e2-45-222-5-113.ngrok.io)
 as your Webhook URL.
+
+**Cloudflare Tunnel (no account required):**
+
+```bash
+cloudflared tunnel --url http://localhost:8100
+```
+
+Use the `trycloudflare.com` URL printed in the output as your Webhook URL.
+Note: the URL changes each time you restart the tunnel.
+
+**Cloudflare Tunnel (persistent URL, requires free account):**
+
+```bash
+cloudflared login
+cloudflared tunnel create webhook-logger
+cloudflared tunnel route dns webhook-logger webhooks.yourdomain.com
+cloudflared tunnel run --url http://localhost:8100 webhook-logger
+```
 
 ## Running the Tests
 
