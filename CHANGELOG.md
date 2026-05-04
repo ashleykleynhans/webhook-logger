@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.1.0] - 2026-05-04
+
+### Fixed
+
+- Return 200 instead of 400 for requests with unparseable payloads, logging a warning instead.
+
+### Documentation
+
+- Added Cloudflare Tunnel as an alternative to ngrok.
+
 ## [2.0.0] - 2026-02-26
 
 ### Added
