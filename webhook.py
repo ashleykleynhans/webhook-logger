@@ -256,12 +256,7 @@ def before_request():
                 # Modify the request headers to include Content-Type
                 request.environ['CONTENT_TYPE'] = 'application/json'
             except Exception as e:
-                # If JSON parsing fails, return 400 Bad Request
-                return make_response(jsonify({
-                    'status': 'error',
-                    'msg': 'Invalid JSON data',
-                    'detail': str(e)
-                }), 400)
+                print(f'WARNING: Failed to parse request body as JSON: {e}')
 
 
 @app.errorhandler(404)
@@ -301,7 +296,11 @@ def webhook_handler():
     print('Token: ' + token)
     print('User agent: ' + request.headers.get('user-agent', '-'))
 
-    payload = request.get_json()
+    payload = request.get_json(force=True, silent=True)
+    if payload is None:
+        print(f'WARNING: Could not parse request body as JSON, raw body: {request.data!r}')
+        print('-' * 50)
+        return make_response(jsonify({'status': 'ok'}), 200)
     job_id = payload.get('id')
     processor = payload.get('processor')
     delay_time = payload.get('delayTime')
@@ -339,6 +338,7 @@ def webhook_handler():
         print('Meta-data:', json.dumps(metadata, indent=4, default=str))
 
     print('-' * 50)
+    #print(json.dumps(payload, indent=2, default=str))
 
     return make_response(jsonify(
         {
